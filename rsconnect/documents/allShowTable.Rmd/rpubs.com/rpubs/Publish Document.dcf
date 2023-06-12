@@ -1,0 +1,11 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/935755/a3b9e6ca05d94609af7a9dac5babf180
+bundleId: https://api.rpubs.com/api/v1/document/935755/a3b9e6ca05d94609af7a9dac5babf180
+url: http://rpubs.com/JayChen/935755
+when: 1667698012.02707
+lastSyncTime: 1667698012.02708

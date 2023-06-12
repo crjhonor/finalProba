@@ -1,0 +1,567 @@
+---
+title: "ALL PROBATILITIES AT ONE TOGETHER"
+#author: "CHENRUJIE"
+#date: "2022年8月28日"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    theme: darkly
+---
+
+```{r setup, include=FALSE}
+# Libraries.--------------------------------------------------------------------
+library(readr)
+library(timeDate)
+library(timeSeries)
+library(readr)
+library(knitr)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+allProba_filepath <- file.path("~/finalProba/allProba")
+allProba_filelist <- list.files(allProba_filepath)
+
+```
+
+All probabilities are assemble here, from PRO80 project, sentiCourse project, sentiMacro project and others. And I am trying to use the ensemble approach to generate the final probability result which should be guiding my trade
+
+# DIRECT LISTING.
+
+```{r Loading Daily Trading Data, echo=FALSE, paged.print=FALSE}
+## Loading All Trading Data pre processing.=====================================
+pro80_filelist = grep('\\pro80', allProba_filelist, value = TRUE)
+sentiCourse_filelist = grep('dicingerpro', allProba_filelist, value = TRUE)
+allProba_filelist
+```
+
+## Probability from PRO80 Project {.tabset}
+
+### CU0 Related
+
+```{r}
+filename = grep('cu0', pro80_filelist, value = TRUE)
+pro80_cu0_related <- read_csv(file.path(allProba_filepath, filename))
+pro80_cu0_related_df <- as.data.frame(pro80_cu0_related[-1])
+rownames(pro80_cu0_related_df) <- pro80_cu0_related$...1
+knitr::kable(pro80_cu0_related_df)
+```
+
+### RB0 Related
+
+```{r}
+filename = grep('rb0', pro80_filelist, value = TRUE)
+pro80_rb0_related <- read_csv(file.path(allProba_filepath, filename))
+pro80_rb0_related_df <- as.data.frame(pro80_rb0_related[-1])
+rownames(pro80_rb0_related_df) <- pro80_rb0_related$...1
+knitr::kable(pro80_rb0_related_df)
+```
+
+### SCM Related
+
+```{r}
+filename = grep('SCM', pro80_filelist, value = TRUE)
+pro80_SCM_related <- read_csv(file.path(allProba_filepath, filename))
+pro80_SCM_related_df <- as.data.frame(pro80_SCM_related[-1])
+rownames(pro80_SCM_related_df) <- pro80_SCM_related$...1
+knitr::kable(pro80_SCM_related)
+```
+
+## Probability from sentiCourse Project {.tabset}
+
+### dicingerPro_TD
+
+```{r}
+filename = grep('dicingerpro_TD', sentiCourse_filelist, value = TRUE)
+dicingerPro_TD <- read_csv(file.path(allProba_filepath, filename))
+dicingerPro_TD.df <- as.data.frame(dicingerPro_TD[-1])
+rownames(dicingerPro_TD.df) <- paste('dicingerPro_TD', c("linear", "CNN", "RNN"), sep=".")
+knitr::kable(t(dicingerPro_TD.df))
+```
+
+### dicingerPro_S
+
+```{r}
+filename = grep('dicingerpro_S', sentiCourse_filelist, value = TRUE)
+dicingerPro_S <- read_csv(file.path(allProba_filepath, filename))
+dicingerPro_S.df <- as.data.frame(dicingerPro_S[-1])
+rownames(dicingerPro_S.df) <- paste('dicingerPro_S', c("linear", "CNN", "RNN"), sep=".")
+knitr::kable(t(dicingerPro_S.df))
+```
+
+The table preprocessing all the data should include the following features: 
+up_flag, down_flag, acc.
+
+```{r DESIGNING THE TABLE}
+library(tidyverse)
+# # Functions.------------------------------------------------------------------
+# Function to create probability table of given target index
+create_Proba <- function(indexWanted){
+  Proba.df <- data.frame(matrix(nrow = 9, ncol = 5))
+  colnames(Proba.df) <- c("target", "module", "up_flag", "down_flag", "acc.")
+  Proba.df$module <- c("ABOVEorBELOW",
+                       "UPorDOWN", 
+                       "STRONGorWEAK",
+                       "dicingerPro_TD.linear",
+                       "dicingerPro_TD.CNN",
+                       "dicingerPro_TD.RNN",
+                       "dicingerPro_S.linear",
+                       "dicingerPro_S.CNN",
+                       "dicingerPro_S.RNN")
+  rownames(Proba.df) <- Proba.df$module
+  ind <- paste0(indexWanted, '_60')
+  Proba.df$target <- ind
+  pattern = paste0("^", indexWanted)
+
+  # Read ABOVEorBELOW module, assume the accuracy to be slightly above half a point to be 0.55
+  if(ind%in%colnames(pro80_cu0_related_df)){
+    Proba.df["ABOVEorBELOW", "up_flag"] <- pro80_cu0_related_df["ABOVE_TREND", ind]
+    Proba.df["ABOVEorBELOW", "down_flag"] <- pro80_cu0_related_df["BELOW_TREND", ind]
+  }else if(ind%in%colnames(pro80_rb0_related_df)){
+    Proba.df["ABOVEorBELOW", "up_flag"] <- pro80_rb0_related_df["ABOVE_TREND", ind]
+    Proba.df["ABOVEorBELOW", "down_flag"] <- pro80_rb0_related_df["BELOW_TREND", ind]
+  }else if(ind%in%colnames(pro80_SCM_related_df)){
+    Proba.df["ABOVEorBELOW", "up_flag"] <- pro80_SCM_related_df["ABOVE_TREND", ind]
+    Proba.df["ABOVEorBELOW", "down_flag"] <- pro80_SCM_related_df["BELOW_TREND", ind]
+  }
+  Proba.df["ABOVEorBELOW", "acc."] <- c(0.70)
+
+  # Read UPorDOWN module, assume the accuracy to be slightly above half a point to be 0.55
+  if(ind%in%colnames(pro80_cu0_related_df)){
+    Proba.df["UPorDOWN", "up_flag"] <- pro80_cu0_related_df["TREND_UP", ind]
+    Proba.df["UPorDOWN", "down_flag"] <- pro80_cu0_related_df["TREND_DOWN", ind]
+  }else if(ind%in%colnames(pro80_rb0_related_df)){
+    Proba.df["UPorDOWN", "up_flag"] <- pro80_rb0_related_df["TREND_UP", ind]
+    Proba.df["UPorDOWN", "down_flag"] <- pro80_rb0_related_df["TREND_DOWN", ind]
+  }else if(ind%in%colnames(pro80_SCM_related_df)){
+    Proba.df["UPorDOWN", "up_flag"] <- pro80_SCM_related_df["TREND_UP", ind]
+    Proba.df["UPorDOWN", "down_flag"] <- pro80_SCM_related_df["TREND_DOWN", ind]
+  }
+  Proba.df["UPorDOWN", "acc."] <- c(0.80)
+  
+  # Read STRONGorWEAK module, assume the accuracy to be slightly above half a point to be 0.55
+  if(ind%in%colnames(pro80_cu0_related_df)){
+    Proba.df["STRONGorWEAK", "up_flag"] <- pro80_cu0_related_df["STRONG", ind]
+    Proba.df["STRONGorWEAK", "down_flag"] <- pro80_cu0_related_df["WEAK", ind]
+  }else if(ind%in%colnames(pro80_rb0_related_df)){
+    Proba.df["STRONGorWEAK", "up_flag"] <- pro80_rb0_related_df["STRONG", ind]
+    Proba.df["STRONGorWEAK", "down_flag"] <- pro80_rb0_related_df["WEAK", ind]
+  }else if(ind%in%colnames(pro80_SCM_related_df)){
+    Proba.df["STRONGorWEAK", "up_flag"] <- pro80_SCM_related_df["STRONG", ind]
+    Proba.df["STRONGorWEAK", "down_flag"] <- pro80_SCM_related_df["WEAK", ind]
+  }
+  Proba.df["STRONGorWEAK", "acc."] <- c(0.90)
+  
+  dfind <- grep(pattern, colnames(dicingerPro_TD.df))
+  # Read dicingerPro_TD.linear module
+  if(length(dfind)==2){
+    if(dicingerPro_TD.df['dicingerPro_TD.linear', dfind[2]] == 0){
+      Proba.df['dicingerPro_TD.linear', "up_flag"] <- 0
+      Proba.df['dicingerPro_TD.linear', "down_flag"] <- 1
+    }else if(dicingerPro_TD.df['dicingerPro_TD.linear', dfind[2]] == 1){
+      Proba.df['dicingerPro_TD.linear', "up_flag"] <- 1
+      Proba.df['dicingerPro_TD.linear', "down_flag"] <- 0
+    }
+    Proba.df['dicingerPro_TD.linear', 'acc.'] <- dicingerPro_TD.df['dicingerPro_TD.linear', dfind[1]]
+  }
+  # Read dicingerPro_TD.CNN module
+  if(length(dfind)==2){
+    if(dicingerPro_TD.df['dicingerPro_TD.CNN', dfind[2]] == "[0]"){
+      Proba.df['dicingerPro_TD.CNN', "up_flag"] <- 0
+      Proba.df['dicingerPro_TD.CNN', "down_flag"] <- 1
+    }else if(dicingerPro_TD.df['dicingerPro_TD.CNN', dfind[2]] == "[1]"){
+      Proba.df['dicingerPro_TD.CNN', "up_flag"] <- 1
+      Proba.df['dicingerPro_TD.CNN', "down_flag"] <- 0
+    }
+    Proba.df['dicingerPro_TD.CNN', 'acc.'] <- dicingerPro_TD.df['dicingerPro_TD.CNN', dfind[1]]
+  }
+  # Read dicingerPro_TD.RNN module
+  if(length(dfind)==2){
+    if(dicingerPro_TD.df['dicingerPro_TD.RNN', dfind[2]] == 0){
+      Proba.df['dicingerPro_TD.RNN', "up_flag"] <- 0
+      Proba.df['dicingerPro_TD.RNN', "down_flag"] <- 1
+    }else if(dicingerPro_TD.df['dicingerPro_TD.RNN', dfind[2]] == 1){
+      Proba.df['dicingerPro_TD.RNN', "up_flag"] <- 1
+      Proba.df['dicingerPro_TD.RNN', "down_flag"] <- 0
+    }
+    Proba.df['dicingerPro_TD.RNN', 'acc.'] <- dicingerPro_TD.df['dicingerPro_TD.RNN', dfind[1]]
+  }
+
+  dfind <- grep(pattern, colnames(dicingerPro_S.df))
+  # Read dicingerPro_S.linear module
+  if(length(dfind)==2){
+    if(dicingerPro_S.df['dicingerPro_S.linear', dfind[2]] == 0){
+      Proba.df['dicingerPro_S.linear', "up_flag"] <- 0
+      Proba.df['dicingerPro_S.linear', "down_flag"] <- 1
+    }else if(dicingerPro_S.df['dicingerPro_S.linear', dfind[2]] == 1){
+      Proba.df['dicingerPro_S.linear', "up_flag"] <- 1
+      Proba.df['dicingerPro_S.linear', "down_flag"] <- 0
+    }
+    Proba.df['dicingerPro_S.linear', 'acc.'] <- dicingerPro_S.df['dicingerPro_S.linear', dfind[1]]
+  }
+  # Read dicingerPro_S.CNN module
+  if(length(dfind)==2){
+    if(dicingerPro_S.df['dicingerPro_S.CNN', dfind[2]] == "[0]"){
+      Proba.df['dicingerPro_S.CNN', "up_flag"] <- 0
+      Proba.df['dicingerPro_S.CNN', "down_flag"] <- 1
+    }else if(dicingerPro_S.df['dicingerPro_S.CNN', dfind[2]] == "[1]"){
+      Proba.df['dicingerPro_S.CNN', "up_flag"] <- 1
+      Proba.df['dicingerPro_S.CNN', "down_flag"] <- 0
+    }
+    Proba.df['dicingerPro_S.CNN', 'acc.'] <- dicingerPro_S.df['dicingerPro_S.CNN', dfind[1]]
+  }
+  # Read dicingerPro_S.RNN module
+  if(length(dfind)==2){
+    if(dicingerPro_S.df['dicingerPro_S.RNN', dfind[2]] == 0){
+      Proba.df['dicingerPro_S.RNN', "up_flag"] <- 0
+      Proba.df['dicingerPro_S.RNN', "down_flag"] <- 1
+    }else if(dicingerPro_S.df['dicingerPro_S.RNN', dfind[2]] == 1){
+      Proba.df['dicingerPro_S.RNN', "up_flag"] <- 1
+      Proba.df['dicingerPro_S.RNN', "down_flag"] <- 0
+    }
+    Proba.df['dicingerPro_S.RNN', 'acc.'] <- dicingerPro_S.df['dicingerPro_S.RNN', dfind[1]]
+  }
+  
+  # # Majority Voting, the ensemble approach.-----------------------------------
+  error_up <- Proba.df[which(Proba.df$up_flag==1), ]
+  error_down <- Proba.df[which(Proba.df$down_flag==1), ]
+  up_flags <- count(Proba.df, up_flag)
+  down_flags <- count(Proba.df, down_flag)
+  if(!(is.na(up_flags[1, 1]))){
+      rownames(up_flags) <- up_flags[, 'up_flag']
+      rownames(down_flags) <- down_flags[, 'down_flag']
+      if(!(is.na(up_flags['1',1]))){
+        k_up_flags <- up_flags['1', ]
+      }else if(is.na(up_flags['1',1])){
+        k_up_flags <- data.frame(up_flag=0, n=0)
+        rownames(k_up_flags) <- 1
+      }
+      
+      k_down_flags <- down_flags['1', ]
+      if(k_up_flags['1', 'n'] > 4){
+        ensemble_error <- 0
+        error <- mean(1 - unlist(error_up['acc.']))
+        for(k in 4:k_up_flags['1', 'n']){
+          ensemble_error <- ensemble_error + length(combn(9, k, simplify = FALSE)) * error ** k * (1-error) ** (9 - k)
+        }
+        ensemble_accuracy <- 1-ensemble_error
+        returnSuggestion <- paste0(indexWanted, " is predicted to GO UP as\n", 
+                                   k_up_flags['1', 'n'], " out of 9 modules indicated that \nwith an accuracy of ", 
+                                   round(ensemble_accuracy*100), "%.")
+      }else if(k_down_flags['1', 'n'] > 4){
+        ensemble_error <- 0
+        error <- mean(1 - unlist(error_down['acc.']))
+        for(k in 4:k_down_flags['1', 'n']){
+          ensemble_error <- ensemble_error + length(combn(9, k, simplify = FALSE)) * error ** k * (1-error) ** (9 - k)
+        }
+        ensemble_accuracy <- 1-ensemble_error
+        returnSuggestion <- paste0(indexWanted, " is predicted to GO DOWN as\n", 
+                                   k_down_flags['1', 'n'], " out of 9 modules indicated that \nwith an accuracy of ", 
+                                   round(ensemble_accuracy*100), "%.")
+      }else{
+        returnSuggestion <- paste0(indexWanted, " is predicted to STAY FLAT.")
+      }
+  }
+  return(list(Proba.df, returnSuggestion))
+}
+
+# # Generate all the probabilities.---------------------------------------------
+# Obtain the indexes of all the targets.
+indexes_csv <- read_csv(file.path("~/PRO80", "DailyTDs/ref_TD.csv")) 
+indexes_list <- unlist(indexes_csv[1, ])
+```
+
+## PROBABILITY TABLE {.tabset}
+
+### COPPER
+
+```{r}
+indexWanted = "CU0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### SOYOIL
+
+```{r}
+indexWanted = "Y0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### PALMOIL
+
+```{r}
+indexWanted = "P0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### RUBBER
+
+```{r}
+indexWanted = "RU0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### SILVER
+
+```{r}
+indexWanted = "AG0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### BITUMAN
+
+```{r}
+indexWanted = "BU0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### ZNIC
+
+```{r}
+indexWanted = "ZN0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### PTA
+
+```{r}
+indexWanted = "TA0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### ALUMINUM
+
+```{r}
+indexWanted = "AL0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### L
+
+```{r}
+indexWanted = "L0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### PVC
+
+```{r}
+indexWanted = "V0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### CF
+
+```{r}
+indexWanted = "CF0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### PP
+
+```{r}
+indexWanted = "PP0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### RB
+
+```{r}
+indexWanted = "RB0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### HC
+
+```{r}
+indexWanted = "HC0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### IRONORE
+
+```{r}
+indexWanted = "I0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### MA
+
+```{r}
+indexWanted = "MA0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### FG
+
+```{r}
+indexWanted = "FG0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### AU
+
+```{r}
+indexWanted = "AU0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### FU
+
+```{r}
+indexWanted = "FU0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### SR
+
+```{r}
+indexWanted = "SR0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### M
+
+```{r}
+indexWanted = "M0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+# UP AND DOWN SOCKETS
+
+## UP SOCKETS {.tabset}
+
+### UP_SOCK(1)
+
+```{r}
+indexWanted = "RB0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### UP_SOCK(2)
+
+```{r}
+indexWanted = "HC0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### UP_SOCK(3)
+
+```{r}
+indexWanted = "TA0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### UP_SOCK(4)
+
+```{r}
+indexWanted = "FU0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### UP_SOCK(5)
+
+```{r}
+indexWanted = "MA0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+## DOWN SOCKETS {.tabset}
+
+### DOWN_SOCK(1)
+
+```{r}
+indexWanted = "ZN0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### DOWN_SOCK(2)
+
+```{r}
+indexWanted = "V0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### DOWN_SOCK(3)
+
+```{r}
+indexWanted = "SR0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### DOWN_SOCK(4)
+
+```{r}
+indexWanted = "FG0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```
+
+### DOWN_SOCK(5)
+
+```{r}
+indexWanted = "AL0"
+probaTable <- create_Proba(indexWanted)
+cat(probaTable[[2]])
+knitr::kable(probaTable[[1]])
+```

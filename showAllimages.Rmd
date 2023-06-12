@@ -1,0 +1,126 @@
+---
+title: "SHOW ALL IMAGES"
+#author: "CHENRUJIE"
+#date: "2023年1月29日"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    theme: cerulean
+---
+
+```{r setup, include=FALSE}
+# Libraries.--------------------------------------------------------------------
+library(readr)
+library(timeDate)
+library(timeSeries)
+library(readr)
+library(knitr)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+allProba_filepath <- file.path("~/finalProba/allProba")
+allProba_filelist <- list.files(allProba_filepath)
+
+```
+
+# RED QUEEN MATRIX
+
+```{r, echo=FALSE, paged.print=FALSE}
+library(formattable)
+## Loading All Trading Data pre processing.=====================================
+
+pro80_filelist = grep('\\pro80', allProba_filelist, value = TRUE)
+sentiCourse_filelist = grep('dicingerpro', allProba_filelist, value = TRUE)
+
+flagPlotarea <- function(dataset.df){
+  above_formatter = color_bar("lightpink")
+  below_formatter = color_bar("lightgreen")
+  result_formatter = color_tile("transparent", "lightblue")
+  formattable(dataset.df, list(
+    area(row = 1, col = 4:14) ~ above_formatter,
+    area(row = 2, col = 4:14) ~ below_formatter,
+    area(row = 3, col = 4:14) ~ above_formatter,
+    area(row = 4, col = 4:14) ~ below_formatter,
+    area(row = 5, col = 4:14) ~ above_formatter,
+    area(row = 6, col = 4:14) ~ below_formatter
+  ))
+}
+
+```
+
+## Probability from PRO80 Project {.tabset}
+
+### CU0 Related
+
+```{r}
+filename = grep('cu0', pro80_filelist, value = TRUE)
+pro80_cu0_related <- read_csv(file.path(allProba_filepath, filename))
+pro80_cu0_related_df <- as.data.frame(pro80_cu0_related[-1])
+rownames(pro80_cu0_related_df) <- pro80_cu0_related$...1
+flagPlotarea(pro80_cu0_related_df)
+```
+
+### RB0 Related
+
+```{r}
+filename = grep('rb0', pro80_filelist, value = TRUE)
+pro80_rb0_related <- read_csv(file.path(allProba_filepath, filename))
+pro80_rb0_related_df <- as.data.frame(pro80_rb0_related[-1])
+rownames(pro80_rb0_related_df) <- pro80_rb0_related$...1
+flagPlotarea(pro80_rb0_related_df)
+```
+
+### SCM Related
+
+```{r}
+filename = grep('SCM', pro80_filelist, value = TRUE)
+pro80_SCM_related <- read_csv(file.path(allProba_filepath, filename))
+pro80_SCM_related_df <- as.data.frame(pro80_SCM_related[-1])
+rownames(pro80_SCM_related_df) <- pro80_SCM_related$...1
+flagPlotarea(pro80_SCM_related_df)
+```
+
+# SEQUENCE 2 SEQUENCE RNN
+
+```{r, echo=FALSE, paged.print=FALSE}
+## Loading All Trading Data pre processing.=====================================
+image_filelist = grep('\\.jpg', allProba_filelist, value = TRUE)
+mimic_image_filelist = grep('\\mimic', image_filelist, value = TRUE)
+moon2sun_image_filelist = grep('\\moon2sun', image_filelist, value = TRUE)
+longertime_image_filelist = grep('\\longertime', image_filelist, value = TRUE)
+```
+
+```{r}
+indexesWanted = c("AL0", "I0", "CF0", "FG0", "CF0",
+                  "P0", "Y0", "JM0", "V0", "TA0")
+indClasses = c("mimic", "moon2sun", "longertime")
+```
+
+```{r, results="asis"}
+for(j in 1:length(indexesWanted)){
+  ind = indexesWanted[j]
+  cat(paste("\n##", "More Automatic of", ind, "{.tabset}\n", sep = " "))
+  target_mimic_image_filename = grep(paste0('\\-', ind, '-save'), mimic_image_filelist, value = TRUE)
+  target_mimic_image_filename <- tail(target_mimic_image_filename, 2)
+  target_moon2sun_image_filename = grep(paste0('\\-', ind), moon2sun_image_filelist, value = TRUE)
+  target_moon2sun_image_filename <- tail(target_moon2sun_image_filename, 2)
+  target_longertime_image_filename = grep(paste0('\\-', ind, '-save'), longertime_image_filelist, value = TRUE)
+  target_longertime_image_filename = tail(target_longertime_image_filename, 1)
+  for(i in 1:3){
+    cat(paste("\n###", ind, indClasses[i], "\n", sep = " "))
+    if(i==1){
+      cat(paste0("![](", file.path("/home/crjLambda/finalProba/allProba", 
+                                   target_mimic_image_filename), "){width=100%}"))
+    }else if(i==2){
+      cat(paste0("![](", file.path("/home/crjLambda/finalProba/allProba", 
+                                   target_moon2sun_image_filename), "){width=100%}"))
+    }else if(i==3){
+      cat(paste0("![](", file.path("/home/crjLambda/finalProba/allProba", 
+                                   target_longertime_image_filename), "){width=100%}"))
+    }
+    cat("\n")
+  }
+}
+```
+
+
